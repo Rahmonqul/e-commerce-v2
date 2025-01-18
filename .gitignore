@@ -1,0 +1,9 @@
+.idea/
+
+# Игнорировать кэшированные файлы Python
+__pycache__/
+
+# Игнорировать файлы Pipfile и Pipfile.lock
+Pipfile
+Pipfile.lock
+.env
