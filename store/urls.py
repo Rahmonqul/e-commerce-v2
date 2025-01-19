@@ -8,6 +8,9 @@ urlpatterns=[
     path('products/', ProductApiView.as_view(), name='productapi'),
     path('reviews/', ReviewApiView.as_view(), name='reviewapi'),
     path('products/<str:slug>/', ProductDetailView.as_view(), name='producdetailapi'),
+
+    path('products/<str:slug>/tocart', ProductDetailPostView.as_view(), name='product-to-cart'),
+
     path('products/<str:slug>/review/', ReviewsForProductView.as_view(), name='reviewforproducdetailapi'),
     path('product/<slug>/questions/', QuestionListCreateAPIView.as_view(), name='question-list-create'),
     path('product/<slug>/questions/<int:question_id>/answer/', AnswerCreateAPIView.as_view(), name='answer-create'),
@@ -19,7 +22,7 @@ urlpatterns=[
     path('variant/', VariantView.as_view(), name='variants'),
 
     path('cart/', CartGroupedView.as_view(), name='cart-grouped'),
-    path('cart/<int:id>/', CartProductDetailView.as_view(), name='cart-delete'),
+    path('cart/<int:pk>/', CartItemDetailView.as_view(), name='cart-item-detail'),
 
     path('drf-auth/', include('rest_framework.urls')),
 

@@ -298,7 +298,7 @@ class ProductListSerializer(ModelSerializer):
         return 0
 
     def get_price_in_requested_currency(self, obj):
-        # Передача контекста для получения профиля пользователя
+
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             user = request.user
@@ -366,7 +366,7 @@ class CartProductSerializer(ModelSerializer):
     class Meta:
         model = Cart
         fields = ['product', 'product_name', 'store_name', 'qty', 'subtotal_price', 'size', 'color', 'date']
-
+        read_only_fields = ['subtotal_price', 'product', 'size', 'color']
     def get_product_name(self, obj):
         return obj.product.name if obj.product else None
 
@@ -377,18 +377,28 @@ class CartProductSerializer(ModelSerializer):
         except Vendor.DoesNotExist:
             return None
 
-    def create(self, validated_data):
-        product = validated_data.get('product')
-        size = validated_data.get('size')
-        color = validated_data.get('color')
+    # def create(self, validated_data):
+    #     product = validated_data.get('product')
+    #     size = validated_data.get('size')
+    #     color = validated_data.get('color')
+    #
+    #
+    #     validated_data['size'] = size
+    #     validated_data['color'] = color
+    #
+    #     validated_data.pop('store_name', None)
+    #
+    #     return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        # Обновляем количество, размер и цвет
+        instance.qty = validated_data.get('qty', instance.qty)
+        # instance.size = validated_data.get('size', instance.size)
+        # instance.color = validated_data.get('color', instance.color)
+        instance.subtotal_price = instance.product.price * instance.qty  # Пересчитываем цену
 
-        validated_data['size'] = size
-        validated_data['color'] = color
-
-        validated_data.pop('store_name', None)
-
-        return super().create(validated_data)
+        instance.save()
+        return instance
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -422,6 +432,43 @@ class CartProductSerializer(ModelSerializer):
         return value
 
 
+# class CartProductSerializer(serializers.ModelSerializer):
+#     product_name = serializers.CharField(source='product.name', read_only=True)
+#     store_name = serializers.CharField(source='product.vendor.store_name', read_only=True)
+#     subtotal_price = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Cart
+#         fields = ['product', 'product_name', 'store_name', 'qty', 'subtotal_price', 'size', 'color']
+#
+#     def get_subtotal_price(self, obj):
+#         return obj.product.price * obj.qty  # Подсчитываем стоимость для товара в корзине
+#
+#     def create(self, validated_data):
+#         # Получаем только количество (qty) из запроса
+#         qty = validated_data.get('qty', 1)
+#         product_slug = self.context['view'].kwargs.get('slug')  # Получаем slug из URL
+#         product = Product.objects.filter(slug=product_slug).first()
+#
+#         if not product:
+#             raise ValidationError("Продукт не найден")
+#
+#         # Обрабатываем поле 'size' и 'color', если они есть
+#         size = validated_data.get('size')
+#         color = validated_data.get('color')
+#
+#         # Создаем запись в корзине
+#         cart_item, created = Cart.objects.get_or_create(
+#             user=self.context['request'].user,
+#             product=product,
+#             defaults={'qty': qty, 'size': size, 'color': color}
+#         )
+#
+#         if not created:  # Если товар уже есть в корзине, обновляем количество
+#             cart_item.qty += qty
+#             cart_item.save()
+#
+#         return cart_item
 
 
 #proba

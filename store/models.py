@@ -339,7 +339,7 @@ class Review(models.Model):
     user=models.ForeignKey(user_models.User, on_delete=models.CASCADE,  null=True, blank=True)
     product=models.ForeignKey(Product, on_delete=models.CASCADE, blank=True, null=True, related_name='reviews')
     review=models.TextField()
-    reply=models.TextField()
+    reply=models.TextField(null=True, blank=True, default="")
     rating=models.IntegerField(choices=RATING, default=None)
     active=models.BooleanField(default=False)
     date=models.DateTimeField(auto_now_add=True)
@@ -419,9 +419,7 @@ class Videos(models.Model):
 
     def save(self, *args, **kwargs):
         if self.is_active:
-            Banners.objects.filter(is_active=True).update(is_active=False)
-            # if Banners.objects.filter(is_active=True).exists():
-            #     raise ValidationError("There is already an active instance.")
+            Videos.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
         super().save(*args, **kwargs)
 
 

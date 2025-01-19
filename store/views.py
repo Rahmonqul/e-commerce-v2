@@ -25,10 +25,6 @@ from decimal import Decimal
 from django.db.models import OuterRef, Subquery
 from django.db.models import Prefetch
 
-class VendorPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 20
 
 # ProductAPi Продукты GET
 class ProductApiView(APIView):
@@ -111,11 +107,74 @@ class ProductDetailView(RetrieveAPIView, HitCountDetailView):
         return super().get_queryset()
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        # Передаем объект request в контекст для использования в сериализаторе
         context['request'] = self.request
         return context
 
 
+from django.utils.crypto import get_random_string
+
+class ProductDetailPostView(CreateAPIView):
+    queryset = Cart.objects.all()
+    serializer_class = CartProductSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        # Проверяем наличие session_token, если его нет, создаем новый
+        session_token = request.session.get('session_token')
+        if not session_token:
+            session_token = get_random_string(32)
+            request.session['session_token'] = session_token
+
+        # Извлекаем slug из URL
+        product_slug = self.kwargs.get('slug')
+        product = Product.objects.filter(slug=product_slug).first()
+
+        if not product:
+            raise ValidationError("Продукт не найден")
+
+        # Получаем количество из запроса (по умолчанию 1)
+        qty = request.data.get('qty', 1)
+        try:
+            qty = int(qty)  # Преобразуем qty в целое число
+        except ValueError:
+            raise ValidationError("Количество должно быть целым числом")
+
+        # Если пользователь аутентифицирован, добавляем товар в корзину
+        if request.user.is_authenticated:
+            cart_item, created = Cart.objects.get_or_create(
+                user=request.user,
+                product=product,
+                defaults={'qty': qty}
+            )
+            if not created:  # Если товар уже есть в корзине, обновляем количество
+                cart_item.qty += qty
+                cart_item.save()
+
+            return Response(self.get_serializer(cart_item).data, status=status.HTTP_201_CREATED)
+
+        # Если пользователь не аутентифицирован, работаем с сессией
+        cart_data = request.session.get('cart', [])
+        item_exists = False
+        for item in cart_data:
+            if item['product'] == product.id:
+                item['qty'] += qty  # Обновляем количество
+                item_exists = True
+                break
+
+        if not item_exists:  # Если товара нет в сессии, добавляем новый
+            cart_data.append({
+                'product': product.id,
+                'qty': qty,
+                'subtotal_price': str(product.price * qty),
+                'product_name': product.name,
+                'store_name': product.vendor.store_name if product.vendor else None,
+                'size': request.data.get('size', ''),
+                'color': request.data.get('color', '')
+            })
+
+        request.session['cart'] = cart_data
+
+        return Response({"message": "Товар добавлен в корзину."}, status=status.HTTP_201_CREATED)
 
 
 class ReviewsForProductView(ListCreateAPIView):
@@ -168,7 +227,7 @@ class QuestionListCreateAPIView(ListCreateAPIView):
 
 class AnswerCreateAPIView(CreateAPIView):
     serializer_class = AnswerSerializer
-    permission_classes = [IsAuthenticated] #Or IsAdminUser
+    permission_classes = [IsAuthenticated]
 
     def get_question(self, question_id):
         slug = self.kwargs['slug']
@@ -199,7 +258,7 @@ class AnswerCreateAPIView(CreateAPIView):
         return Response(question_serializer.data, status=status.HTTP_201_CREATED)
 
 
-class CustomPagination(PageNumberPagination):
+class ProductPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
@@ -210,7 +269,7 @@ class ProductListView(ListAPIView):
     filter_backends = (filters.SearchFilter, DjangoFilterBackend)
     filterset_class=ProductListFilter
     search_fields = ['name', 'category__title', 'subcategory__title']
-    pagination_class = CustomPagination
+    pagination_class = ProductPagination
     permission_classes = [AllowAny]
     def get_queryset(self):
         return super().get_queryset()
@@ -250,16 +309,6 @@ class ProductToCategory(ListAPIView):
 
         queryset = self.filter_queryset(self.get_queryset())
 
-        # currency_obj = Currency.objects.filter(code=currency).first()
-        # if not currency_obj:
-        #     return Response({"error": "Currency not found"}, status=status.HTTP_400_BAD_REQUEST)
-        #
-        #
-        # for product in queryset:
-        #     product.currency = currency_obj
-        #     product.price = product.get_price_in_selected_currency()
-        #     product.regular_price = product.get_regular_price()
-
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -284,7 +333,7 @@ class CategoryListView(ListAPIView):
 
 
 
-class CartGroupedView(ListCreateAPIView):
+class CartGroupedView(ListAPIView):
     serializer_class = CartProductSerializer
     # permission_classes = [IsAuthenticated]
 
@@ -292,28 +341,62 @@ class CartGroupedView(ListCreateAPIView):
         return Cart.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        if request.user.is_authenticated:
+            # Для аутентифицированных пользователей
+            queryset = Cart.objects.filter(user=request.user)
+            total_amount = sum(item.subtotal_price for item in queryset)
+            serializer = CartProductSerializer(queryset, many=True)
 
-        total_amount = sum(item.subtotal_price for item in queryset)
-        user_cart = Cart.objects.filter(user=self.request.user)
-        for item in user_cart:
-            item.total = total_amount
-            item.save()
-        return Response({
-            'total_amount': total_amount,
-            'cart_items': serializer.data
-        })
+            return Response({
+                'total_amount': total_amount,
+                'cart_items': serializer.data
+            }, status=status.HTTP_200_OK)
+        else:
+            # Для неаутентифицированных пользователей - работаем с сессией
+            cart_data = request.session.get('cart', [])
+            total_amount = sum(float(item['subtotal_price']) for item in cart_data)
+
+            return Response({
+                'total_amount': total_amount,
+                'cart_items': cart_data
+            }, status=status.HTTP_200_OK)
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
 
 
-# class CartProductCreateView(CreateAPIView):
-#     queryset = Cart.objects.all()
-#     serializer_class = CartProductSerializer
-#     def perform_create(self, serializer):
-#         serializer.save(user=self.request.user)
+class CartItemDetailView(RetrieveUpdateAPIView):
+    serializer_class = CartProductSerializer
+    lookup_field = 'pk'  # Используем идентификатор товара в корзине
+
+    def get_queryset(self):
+        # Получаем товары из корзины текущего пользователя
+        return Cart.objects.filter(user=self.request.user)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Обработка GET запроса для получения товара из корзины"""
+        cart_item = self.get_object()
+        serializer = self.get_serializer(cart_item)
+        return Response(serializer.data)
+
+    def update(self, request, *args, **kwargs):
+        """Обработка PATCH запроса для обновления товара в корзине"""
+        cart_item = self.get_object()
+        serializer = self.get_serializer(cart_item, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, *args, **kwargs):
+        """Обработка DELETE запроса для удаления товара из корзины"""
+        cart_item = self.get_object()
+        cart_item.delete()
+        return Response({"message": "Товар успешно удален из корзины."}, status=status.HTTP_204_NO_CONTENT)
+
+
+
 
 class VariantView(ListAPIView):
     serializer_class = VariantSerializer
@@ -428,8 +511,16 @@ class BrandView(ListAPIView):
 #     def get_queryset(self):
 #         return Banners.objects.filter(is_active=True).first()
 
-class BannerView(APIView):
-    def get(self, request):
+class BannerView(ListAPIView):
+    queryset = Banners.objects.all()
+    serializer_class = BannerSerializer
+
+    class BannerPagination(PageNumberPagination):
+        page_size = 1
+
+    pagination_class = BannerPagination
+
+    def get_queryset(self):
         active_instance = Banners.objects.filter(is_active=True).first()
         all_banners = Banners.objects.all()
 
@@ -438,8 +529,7 @@ class BannerView(APIView):
         else:
             banners = all_banners
 
-        serializer = BannerSerializer(banners, many=True)
-        return Response(serializer.data)
+        return banners
 
 class VideoView(APIView):
     def get(self, request):
@@ -452,6 +542,10 @@ class VideoView(APIView):
 class ServiceView(ListAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiseSerializer
+    class ServicePagination(PageNumberPagination):
+        page_size = 4
+
+    pagination_class = ServicePagination
 
 
 

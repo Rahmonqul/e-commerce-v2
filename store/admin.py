@@ -63,9 +63,9 @@ class VariantAdmin(admin.ModelAdmin):
     search_fields = ['product__name', 'name']
     inlines = [VariantItemInline]
 
-class VarianItemAdmin(admin.ModelAdmin):
-    list_display = ['variant', 'title', 'content']
-    search_fields = ['variant__name', 'title']
+# class VarianItemAdmin(admin.ModelAdmin):
+#     list_display = ['variant', 'title', 'content']
+#     search_fields = ['variant__name', 'title']
 
 class MediaAdmin(admin.ModelAdmin):
     list_display = ['product', 'media_id']
@@ -148,7 +148,7 @@ admin.site.register(Brand, BrandAdmin)
 admin.site.register(Category,CategoryAdmin)
 admin.site.register(Product, ProductAdmin)
 admin.site.register(Variant, VariantAdmin)
-admin.site.register(VariantItem, VarianItemAdmin)
+# admin.site.register(VariantItem, VarianItemAdmin)
 admin.site.register(Media, MediaAdmin)
 admin.site.register(Cart, CartAdmin)
 admin.site.register(Coupon, CouponAdmin)
@@ -162,3 +162,8 @@ admin.site.register(Videos, VideosAdmin)
 # admin.site.register(Size, SizeAdmin)
 # admin.site.register(Style, StyleAdmin)
 # admin.site.register(AdditionalInfo, AdditionalInfoAdmin)
+
+from django.contrib.sessions.models import Session
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
+    list_display = ['session_key', 'expire_date']

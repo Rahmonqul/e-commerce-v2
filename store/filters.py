@@ -2,7 +2,7 @@ import django_filters
 from .models import Product, VariantItem
 
 PRODUCT_FEATURE_CHOICES = [
-    ('', 'All'),  # Barcha mahsulotlar uchun (hech qanday filtr yo'q)
+    ('', 'All'),
     ('best_seller', 'Best Seller'),
     ('sale', 'On Sale'),
     ('new_arrival', 'New Arrival'),
@@ -11,7 +11,7 @@ PRODUCT_FEATURE_CHOICES = [
 class ProductFilter(django_filters.FilterSet):
     category = django_filters.CharFilter(field_name="category__title", lookup_expr='exact', label="Category")
 
-    subcategory = django_filters.CharFilter(field_name="subcategory__title", lookup_expr='exact', label="Subcategory")
+    # subcategory = django_filters.CharFilter(field_name="subcategory__title", lookup_expr='exact', label="Subcategory")
 
     price_min = django_filters.NumberFilter(field_name="price", lookup_expr='gte', label="Min Price")
     price_max = django_filters.NumberFilter(field_name="price", lookup_expr='lte', label="Max Price")
@@ -28,7 +28,7 @@ class ProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = Product
-        fields = ['category', 'subcategory', 'price_min', 'price_max', 'color', 'size', 'style']
+        fields = ['category', 'price_min', 'price_max', 'color', 'size', 'style']
 
 class ProductListFilter(django_filters.FilterSet):
     # active = django_filters.BooleanFilter(field_name='product')
