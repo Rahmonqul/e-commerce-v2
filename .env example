@@ -1,0 +1,3 @@
+SECRET_KEY= 'django-insecure-9ees@xzl_vr=68-(_($d+y)6=_x-(-#qed=nn^tyiki55w2eu5'
+DEBUG=True
+DATABASE_URL='postgres://admin:password@localhost:5432/database'

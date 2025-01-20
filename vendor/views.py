@@ -79,3 +79,32 @@ class ProductToVendor(ListAPIView):
         except Vendor.DoesNotExist:
             raise NotFound(detail="Vendor with this store name does not exist.")
         return Product.objects.filter(vendor=user)
+
+
+
+class ReviewsForStoreView(ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class =ReviewForStoreSerializer
+
+    class Pagination(PageNumberPagination):
+        page_size = 10
+        page_size_query_param = 'page_size'
+        max_page_size = 100
+
+    pagination_class = Pagination
+
+    def get_store(self, slug):
+        try:
+            return Vendor.objects.get(slug=slug)
+        except Vendor.DoesNotExist:
+            raise NotFound("Vendor not found")
+
+    def get_queryset(self):
+        slug = self.kwargs['slug']
+        vendor = self.get_store(slug)
+        return vendor.storereviews.filter(active=True)
+
+    def perform_create(self, serializer):
+        slug = self.kwargs['slug']
+        vendor = self.get_store(slug)
+        serializer.save(user=self.request.user, store=vendor)

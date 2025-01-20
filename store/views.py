@@ -119,7 +119,6 @@ class ProductDetailPostView(CreateAPIView):
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
-        # Проверяем наличие session_token, если его нет, создаем новый
         session_token = request.session.get('session_token')
         if not session_token:
             session_token = get_random_string(32)

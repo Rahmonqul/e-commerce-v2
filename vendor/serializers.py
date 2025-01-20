@@ -29,7 +29,8 @@ class VendorDetailSerializer(ModelSerializer):
     date = DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     phone_number=SerializerMethodField()
     productlist=SerializerMethodField()
-    # currency_code=SerializerMethodField()
+
+
     class Meta:
         model = Vendor
         fields = ['store_name', 'image', 'description', 'review_count', 'new_rating', 'date', 'phone_number', 'productlist']
@@ -54,4 +55,26 @@ class VendorDetailSerializer(ModelSerializer):
     def get_productlist(self, obj):
         products = Product.objects.filter(vendor=obj.user)
         return ProductListSerializer(products, many=True).data
+
+class ReviewForStoreSerializer(ModelSerializer):
+    user_name = SerializerMethodField()
+    image_user=SerializerMethodField()
+
+    class Meta:
+        model = StoreReview
+        fields = ['user_name', 'image_user','rating', 'review', 'reply', 'date']
+        read_only_fields=['reply','date']
+    def get_image_user(self, obj):
+        try:
+            profile = Profile.objects.get(user=obj.user)
+            return profile.image.url if profile.image else None
+        except Profile.DoesNotExist:
+            return None
+
+    def get_user_name(self, obj):
+        try:
+            profile = Profile.objects.get(user=obj.user)
+            return profile.full_name
+        except Profile.DoesNotExist:
+            return obj.user.username
 
