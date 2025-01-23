@@ -28,12 +28,12 @@ class VendorDetailSerializer(ModelSerializer):
     new_rating=SerializerMethodField()
     date = DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     phone_number=SerializerMethodField()
-    productlist=SerializerMethodField()
+    # productlist=SerializerMethodField()
 
 
     class Meta:
         model = Vendor
-        fields = ['store_name', 'image', 'description', 'review_count', 'new_rating', 'date', 'phone_number', 'productlist']
+        fields = ['store_name', 'image', 'description', 'review_count', 'new_rating', 'date', 'phone_number']
 
     def get_new_rating(self, obj):
         reviews = obj.storereviews.all()
@@ -52,9 +52,9 @@ class VendorDetailSerializer(ModelSerializer):
         except Profile.DoesNotExist:
             return None
 
-    def get_productlist(self, obj):
-        products = Product.objects.filter(vendor=obj.user)
-        return ProductListSerializer(products, many=True).data
+    # def get_productlist(self, obj):
+    #     products = Product.objects.filter(vendor=obj.user)
+    #     return ProductListSerializer(products, many=True).data
 
 class ReviewForStoreSerializer(ModelSerializer):
     user_name = SerializerMethodField()

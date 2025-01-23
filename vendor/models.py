@@ -95,7 +95,7 @@ class Notifications(models.Model):
         return self.type
 
 class StoreReview(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'profile__user_type': 'Vendor'}, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     store = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='storereviews')
     review = models.TextField()
     reply = models.TextField(blank=True, null=True)  # Ответ на отзыв

@@ -24,9 +24,7 @@ class AddressSerializer(serializers.ModelSerializer):
             return None
 
     def update(self, instance, validated_data):
-        """
-        Allow users to update their existing address.
-        """
+
         instance.country = validated_data.get('country', instance.country)
         instance.state = validated_data.get('state', instance.state)
         instance.city = validated_data.get('city', instance.city)

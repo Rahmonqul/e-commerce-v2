@@ -73,10 +73,7 @@ class WhishlistView(generics.ListCreateAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        """
-        Возвращает только желания (wishlist) текущего пользователя
-        или основанные на сессии для неавторизованных пользователей.
-        """
+
         if self.request.user.is_authenticated:
             return Whishlist.objects.filter(user=self.request.user)
         else:
@@ -85,13 +82,12 @@ class WhishlistView(generics.ListCreateAPIView):
                 self.request.session.create()
                 session_id = self.request.session.session_key
 
-            # Проверяем, является ли session_id валидным UUID
             try:
                 uuid.UUID(session_id)
             except ValueError:
-                # Генерируем новый UUID, если session_id не валиден
+
                 session_id = str(uuid.uuid4())
-                self.request.session['session_key'] = session_id  # Сохраняем в сессии
+                self.request.session['session_key'] = session_id
                 self.request.session.save()
 
             return Whishlist.objects.filter(session_id=session_id)
@@ -105,13 +101,12 @@ class WhishlistView(generics.ListCreateAPIView):
                 self.request.session.create()
                 session_id = self.request.session.session_key
 
-            # Проверяем, является ли session_id валидным UUID
             try:
                 uuid.UUID(session_id)
             except ValueError:
-                # Генерируем новый UUID, если session_id не валиден
+
                 session_id = str(uuid.uuid4())
-                self.request.session['session_key'] = session_id  # Сохраняем в сессии
+                self.request.session['session_key'] = session_id
                 self.request.session.save()
 
             serializer.save(session_id=session_id)
@@ -129,13 +124,12 @@ class WhishlistView(generics.ListCreateAPIView):
                 request.session.create()
                 session_id = request.session.session_key
 
-            # Проверяем, является ли session_id валидным UUID
             try:
                 uuid.UUID(session_id)
             except ValueError:
-                # Генерируем новый UUID, если session_id не валиден
+
                 session_id = str(uuid.uuid4())
-                request.session['session_key'] = session_id  # Сохраняем в сессии
+                request.session['session_key'] = session_id
                 request.session.save()
 
             exists = Whishlist.objects.filter(session_id=session_id, product_id=product_id).exists()

@@ -404,7 +404,7 @@ class CartDetailView(RetrieveUpdateDestroyAPIView):
 
 class CartItemDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = CartItemSerializer
-    lookup_field = 'id'  # Ищем по ID CartItem
+    lookup_field = 'id'
 
     def get_queryset(self):
         if self.request.user.is_authenticated:

@@ -268,7 +268,7 @@ class Order(models.Model):
     order_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     payment_id = models.CharField(max_length=1000, null=True, blank=True)
     date = models.DateTimeField(default=timezone.now)
-    # cartitems=models.ManyToManyField("CartItem", blank=True)
+
 
 
     class Meta:

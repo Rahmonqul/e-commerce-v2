@@ -60,6 +60,8 @@ class VendorDetailView(RetrieveAPIView):
         return super().get_queryset()
 
 
+
+
 class ProductToVendor(ListAPIView):
     serializer_class = ProductListSerializer
     filter_backends = [DjangoFilterBackend]
@@ -80,18 +82,25 @@ class ProductToVendor(ListAPIView):
             raise NotFound(detail="Vendor with this store name does not exist.")
         return Product.objects.filter(vendor=user)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        context['user'] = self.request.user
+        return context
+
+
 
 
 class ReviewsForStoreView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class =ReviewForStoreSerializer
 
-    class Pagination(PageNumberPagination):
-        page_size = 10
-        page_size_query_param = 'page_size'
-        max_page_size = 100
-
-    pagination_class = Pagination
+    # class Pagination(PageNumberPagination):
+    #     page_size = 10
+    #     page_size_query_param = 'page_size'
+    #     max_page_size = 100
+    #
+    # pagination_class = Pagination
 
     def get_store(self, slug):
         try:
