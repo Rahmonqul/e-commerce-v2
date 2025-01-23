@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Address
+from .models import Address, Whishlist
 from usauth.models import Profile
 from rest_framework.serializers import SerializerMethodField
 class AddressSerializer(serializers.ModelSerializer):
@@ -34,3 +34,10 @@ class AddressSerializer(serializers.ModelSerializer):
         instance.zip_code = validated_data.get('zip_code', instance.zip_code)
         instance.save()
         return instance
+
+
+class WhishlistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model=Whishlist
+        fields=['id', 'user', 'session_id', 'product']
+        read_only_fields=['user']

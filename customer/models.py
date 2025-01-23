@@ -11,7 +11,8 @@ TYPE=(
 )
 
 class Whishlist(models.Model):
-    user=models.ForeignKey(User, on_delete=models.CASCADE)
+    user=models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_id=models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     product=models.ForeignKey(Product, on_delete=models.CASCADE)
 
     class Meta:

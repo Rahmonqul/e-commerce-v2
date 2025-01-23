@@ -372,8 +372,6 @@ class ProductDetailPostView(ListCreateAPIView):
 
 
 
-
-
 class CartDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = CartSerializer
     permission_classes = [AllowAny]

@@ -7,11 +7,11 @@ class AddressAdmin(admin.ModelAdmin):
     list_display = ['id','user', 'full_name']
 
 class WhishlistAdmin(admin.ModelAdmin):
-    list_display = ['user', 'product']
+    list_display = ['user', 'session_id', 'product']
 
 class NotificationsAdmin(ImportExportModelAdmin):
     list_display = ['user', 'type', 'seen', 'date']
 
 admin.site.register(Address, AddressAdmin)
-# admin.site.register(Whishlist, WhishlistAdmin)
+admin.site.register(Whishlist, WhishlistAdmin)
 # admin.site.register(Notifications, NotificationsAdmin)
