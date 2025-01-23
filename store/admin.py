@@ -2,7 +2,7 @@ from django.contrib import admin
 from  .models import *
 from django.utils.timezone import localtime
 # Register your models here.
-from mptt.admin import MPTTModelAdmin
+from mptt.admin import MPTTModelAdmin, DraggableMPTTAdmin
 
 
 class BrandInline(admin.TabularInline):
@@ -14,12 +14,6 @@ class MediaInline(admin.TabularInline):
 class VariantInline(admin.TabularInline):
     model=Variant
 
-class VariantItemInline(admin.TabularInline):
-    model=VariantItem
-
-# class SubCategoryInline(admin.TabularInline):
-#     model=SubCategory
-#     prepopulated_fields = {'slug': ('title',)}
 
 class AnswerInline(admin.TabularInline):
     model = Answer
@@ -27,54 +21,42 @@ class AnswerInline(admin.TabularInline):
     fields = ['user', 'answer_text', 'date_answered']
     readonly_fields = ['date_answered']
 
-# class SubCategoryAdmin(admin.ModelAdmin):
-#     list_display = ['title', 'image']
-#     list_editable = ['image']
-#     prepopulated_fields = {'slug': ('title',)}
-#     search_fields = ['title']
 
 class BrandAdmin(admin.ModelAdmin):
     list_display = ['brand_name', 'image']
 
-class CategoryAdmin(MPTTModelAdmin):
-    list_display = ['title','parent' ,'image']
-    list_editable = ['image']
+class CategoryAdmin(DraggableMPTTAdmin):
+    mptt_indent_field = 'title'
+    list_display = ('tree_actions', 'indented_title', 'id')
     search_fields = ['title']
-    # inlines = [SubCategoryInline]
     prepopulated_fields = {'slug':('title',)}
 
+
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'price', 'regular_price', 'stock', 'featured', 'vendor', 'brand', 'date']
+    list_display = ['name', 'category',  'stock', 'featured', 'vendor', 'brand', 'date']
     search_fields = ['name', 'category__title']
     list_filter = [ 'status','featured']
     inlines = [MediaInline, VariantInline]
     prepopulated_fields = {'slug': ('name',)}
 
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "subcategory":
-            category_id = request.POST.get('category')
-            if category_id:
-                kwargs['queryset'] = SubCategory.objects.filter(category_id=category_id)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-
 class VariantAdmin(admin.ModelAdmin):
-    list_display = ['product', 'name']
+    list_display = ['product','color', 'size', 'style', 'media', 'price_variant']
     search_fields = ['product__name', 'name']
-    inlines = [VariantItemInline]
 
-# class VarianItemAdmin(admin.ModelAdmin):
-#     list_display = ['variant', 'title', 'content']
-#     search_fields = ['variant__name', 'title']
+
 
 class MediaAdmin(admin.ModelAdmin):
     list_display = ['product', 'media_id']
     search_fields = ['product__name', 'media_id']
 
+
 class CartAdmin(admin.ModelAdmin):
-    list_display = ['id', 'product', 'user', 'qty', 'price', 'subtotal_price', 'date']
-    search_fields = ['id', 'product__name', 'user__username']
-    list_filter = ['date', 'product']
+    list_display = ['user', 'session_id']
+
+class CartItemsAdmin(admin.ModelAdmin):
+    list_display = ['cart', 'product', 'variant', 'qty',  'total_price']
+    search_fields = ['cart', 'product__name']
+    list_filter = ['product']
 
 class CouponAdmin(admin.ModelAdmin):
     list_display = ['code', 'vendor', 'discount']
@@ -128,17 +110,17 @@ class CurrencyAdmin(admin.ModelAdmin):
 class VideosAdmin(admin.ModelAdmin):
     list_display = ['title']
 
-# class ColorAdmin(admin.ModelAdmin):
-#     list_display = ['name']
-#
-# class SizeAdmin(admin.ModelAdmin):
-#     list_display = ['name']
-#
-# class StyleAdmin(admin.ModelAdmin):
-#     list_display = ['name']
+class ColorAdmin(admin.ModelAdmin):
+    list_display = ['name']
 
-# class AdditionalInfoAdmin(admin.ModelAdmin):
-#     list_display = ['text']
+class SizeAdmin(admin.ModelAdmin):
+    list_display = ['name']
+
+class StyleAdmin(admin.ModelAdmin):
+    list_display = ['name']
+
+class AdditionalInfoAdmin(admin.ModelAdmin):
+    list_display = ['text']
 
 admin.site.register(Currency, CurrencyAdmin)
 admin.site.register(Banners, BannerAdmin)
@@ -151,6 +133,7 @@ admin.site.register(Variant, VariantAdmin)
 # admin.site.register(VariantItem, VarianItemAdmin)
 admin.site.register(Media, MediaAdmin)
 admin.site.register(Cart, CartAdmin)
+admin.site.register(CartItem, CartItemsAdmin)
 admin.site.register(Coupon, CouponAdmin)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderItem,OrderItemAdmin)
@@ -158,9 +141,9 @@ admin.site.register(Review, ReviewAdmin)
 admin.site.register(Question, QuestionAdmin)
 admin.site.register(Answer, AnswerAdmin)
 admin.site.register(Videos, VideosAdmin)
-# admin.site.register(Color, ColorAdmin)
-# admin.site.register(Size, SizeAdmin)
-# admin.site.register(Style, StyleAdmin)
+admin.site.register(Color, ColorAdmin)
+admin.site.register(Size, SizeAdmin)
+admin.site.register(Style, StyleAdmin)
 # admin.site.register(AdditionalInfo, AdditionalInfoAdmin)
 
 from django.contrib.sessions.models import Session

@@ -65,19 +65,6 @@ class Category(MPTTModel):
         verbose_name_plural='Categories'
         ordering=['title']
 
-class SubCategory(models.Model):
-    title=models.CharField(max_length=200, verbose_name='name subcategory')
-    image=models.ImageField(upload_to='subcategory/', null=True, blank=True)
-    category=TreeForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories')
-    slug=models.SlugField(unique=True)
-
-    def __str__(self):
-        return self.title
-
-    class Meta:
-        verbose_name_plural='Subcategories'
-        ordering=['title']
-
 
 class Brand(models.Model):
     brand_name=models.CharField(max_length=200, null=True, blank=True)
@@ -94,30 +81,21 @@ class Currency(models.Model):
     def __str__(self):
         return f'{self.name} ({self.code})'
 
-    @staticmethod
-    def get_default_currency():
-        return Currency.objects.get(code='USD')
+class Color(models.Model):
+    name=models.CharField(max_length=200)
+    def __str__(self):
+        return self.name
 
+class Size(models.Model):
+    name = models.CharField(max_length=200)
+    def __str__(self):
+        return self.name
 
-# class Color(models.Model):
-#     name=models.CharField(max_length=200)
-#
-#     def __str__(self):
-#         return self.name
-#
-#
-# class Size(models.Model):
-#     name = models.CharField(max_length=200)
-#
-#     def __str__(self):
-#         return self.name
-#
-#
-# class Style(models.Model):
-#     name = models.CharField(max_length=200)
-#
-#     def __str__(self):
-#         return self.name
+class Style(models.Model):
+    name = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.name
 
 
 
@@ -128,11 +106,11 @@ class Product(models.Model, HitCountMixin):
     additional_info=CKEditor5Field("Additional Info", blank=True, null=True)
 
     category=TreeForeignKey(Category, on_delete=models.CASCADE)
-    # subcategory=models.ForeignKey(SubCategory, on_delete=models.CASCADE)
 
     price=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
     regular_price=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    currency = models.ForeignKey(Currency, on_delete=models.CASCADE, default=Currency.get_default_currency)
+
+    # currency = models.ForeignKey(Currency, on_delete=models.CASCADE, default=None)
     stock=models.PositiveIntegerField(default=0, null=True, blank=True)
     shipping=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
 
@@ -168,68 +146,34 @@ class Product(models.Model, HitCountMixin):
             self.slug=slugify(self.name)+'-'+str(uuid.uuid4())[:2]
         super(Product, self).save(*args, **kwargs)
 
-    @property
-    def price_in_requested_currency(self):
-        user = self.vendor.user if self.vendor else None
-        profile = user.profile if user else None
 
-        if profile and profile.currency:
-            user_currency = profile.currency
-            conversion_rate = self.get_currency_conversion_rate(self.currency, user_currency)
-            return round(self.price * conversion_rate, 2)
-        return self.price  # Если у пользователя нет профиля или валюты, возвращаем цену по умолчанию
+from decimal import Decimal
 
-    @property
-    def regular_price_in_requested_currency(self):
-        user = self.vendor.user if self.vendor else None
-        profile = user.profile if user else None
 
-        if profile and profile.currency:
-            user_currency = profile.currency
-            conversion_rate = self.get_currency_conversion_rate(self.currency, user_currency)
-            return round(self.regular_price * conversion_rate, 2)
-        return self.regular_price  # Если у пользователя нет профиля или валюты, возвращаем regular_price по умолчанию
 
-    @property
-    def discount_percentage(self):
-        if self.regular_price and self.price and self.regular_price > self.price:
-            discount = ((self.regular_price - self.price) / self.regular_price) * 100
-            return round(discount)
-        return 0
-
-    def get_currency_conversion_rate(self, from_currency, to_currency):
-        # Получаем курсы для валюты
-        from_currency_obj = get_object_or_404(Currency, code=from_currency.code)
-        to_currency_obj = get_object_or_404(Currency, code=to_currency.code)
-
-        if from_currency_obj == to_currency_obj:
-            return 1
-        # Конвертация через курс к USD
-        conversion_rate = from_currency_obj.rate_to_usd / to_currency_obj.rate_to_usd
-        return conversion_rate
 
 class Variant(models.Model):
-    variant_choices=(
-        ('Color', 'Color'),
-        ('Size', 'Size'),
-        ('Style', 'Style')
-    )
-    product=models.ForeignKey(Product, on_delete=models.CASCADE)
-    name=models.CharField(max_length=1000, verbose_name='Variant name', choices=variant_choices, default=None)
 
-    def items(self):
-        return VariantItem.objects.filter(variant=self)
-
-    def __str__(self):
-        return self.name
-
-class VariantItem(models.Model):
-    variant=models.ForeignKey(Variant, on_delete=models.CASCADE, related_name='variant_items')
-    title=models.CharField(max_length=1000, verbose_name='item title', null=True, blank=True)
-    content=models.CharField(max_length=1000, verbose_name='content item', null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+        # name=models.CharField(max_length=1000, verbose_name='Variant name', choices=variant_choices, default=None)
+    color = models.ForeignKey(Color, on_delete=models.CASCADE, verbose_name='color', null=True, blank=True)
+    size = models.ForeignKey(Size, on_delete=models.CASCADE, verbose_name='Size', null=True, blank=True)
+    style = models.ForeignKey(Style, on_delete=models.CASCADE, verbose_name='Style', null=True, blank=True)
+    price_variant_field = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
+    media = models.ImageField(null=True, blank=True)
+    stock = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
-        return self.variant.name
+            return f'{self.product.name} color: {self.color}, style: {self.style}, size: {self.size}'
+
+    def price_variant(self, user=None):
+        if user and hasattr(user, 'profile') and user.profile.currency:
+            conversion_rate = user.profile.currency.rate_to_usd
+            if conversion_rate:
+                return round(self.price_variant_field * conversion_rate, 2)
+
+        return self.price_variant_field
+
 
 class Media(models.Model):
     product=models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
@@ -243,25 +187,61 @@ class Media(models.Model):
         verbose_name_plural='Media'
         ordering=['-id']
 
-class Cart(models.Model):
-    product=models.ForeignKey(Product, on_delete=models.CASCADE)
-    user=models.ForeignKey(user_models.User, on_delete=models.CASCADE, null=True, blank=True)
-    qty=models.PositiveIntegerField(default=0, null=True, blank=True)
-    price=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    subtotal_price=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    # shipping=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    total=models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    size=models.CharField(max_length=100, blank=True, null=True)
-    color=models.CharField(max_length=100, blank=True, null=True)
-    date=models.DateTimeField(auto_now_add=True)
 
-    def save(self, *args, **kwargs):
-        self.price = self.product.price
-        self.subtotal_price = self.qty * self.price
-        super(Cart, self).save(*args, **kwargs)
+class Cart(models.Model):
+    user = models.ForeignKey('usauth.User', on_delete=models.CASCADE, related_name='carts', null=True, blank=True)
+    session_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Cart"
+        verbose_name_plural = "Carts"
 
     def __str__(self):
-        return f'{self.product.name}'
+        return f"Cart {self.id} for {self.user.username if self.user else f'Anonymous {self.session_id}'}"
+
+    @property
+    def total_items(self):
+        return self.items.aggregate(total=models.Sum('qty'))['total'] or 0
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items.all())
+
+    def clear(self):
+        self.items.all().delete()
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)
+    variant = models.ForeignKey('Variant', on_delete=models.CASCADE, null=True, blank=True)
+    qty = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Cart Item"
+        verbose_name_plural = "Cart Items"
+        unique_together = ('cart', 'product', 'variant')
+
+    def __str__(self):
+        return f"{self.qty} x {self.product.name} (Variant: {self.variant if self.variant else 'N/A'})"
+
+    @property
+    def total_price(self):
+        user = self.cart.user
+        if self.variant:
+
+            return self.variant.price_variant(user) * self.qty if user else self.variant.price_variant_field * self.qty
+        return self.product.price * self.qty
+
+    def update_qty(self, qty):
+        self.qty = qty
+        self.save()
+
+
 
 class Coupon(models.Model):
     vendor=models.ForeignKey(user_models.User, on_delete=models.CASCADE)
@@ -272,67 +252,63 @@ class Coupon(models.Model):
         return  self.code
 
 
-class Order(models.Model):
-    vendors=models.ManyToManyField(user_models.User, limit_choices_to={'profile__user_type': 'Vendor'}, blank=True)
-    customer=models.ForeignKey(user_models.User, limit_choices_to={'profile__user_type': 'Customer'}, on_delete=models.CASCADE, related_name='customer', null=True, blank=True)
-    subtotal_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    shipping=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    tax=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    service_fee=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    total=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    payment_method=models.CharField(max_length=200, choices=PAYMENT_METHOD, default=None, blank=True, null=True)
-    payment_status=models.CharField(max_length=200, choices=PAYMENT_STATUS, default='Processing')
-    order_status=models.CharField(max_length=200, choices=ORDER_STATUS, default='Pending')
-    initial_total=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    saved=models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    adress=models.ForeignKey('customer.Address', on_delete=models.CASCADE, null=True, blank=True)
 
-    coupons=models.ManyToManyField(Coupon, blank=True)
-    order_id=models.UUIDField(default=uuid.uuid4,  unique=True, editable=False)
-    payment_id=models.CharField(null=True, blank=True, max_length=1000)
-    date=models.DateTimeField(default=timezone.now)
+class Order(models.Model):
+    vendors = models.ManyToManyField("usauth.User", limit_choices_to={'profile__user_type': 'Vendor'}, blank=True)
+    customer = models.ForeignKey('usauth.User',  on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+    subtotal_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    payment_method = models.CharField(max_length=200, choices=PAYMENT_METHOD, default=None, blank=True, null=True)
+    payment_status = models.CharField(max_length=200, choices=PAYMENT_STATUS, default='Processing')
+    order_status = models.CharField(max_length=200, choices=ORDER_STATUS, default='Pending')
+    initial_total = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    saved = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    address = models.ForeignKey('customer.Address', on_delete=models.CASCADE, null=True, blank=True)
+    coupons = models.ManyToManyField(Coupon, blank=True)
+    order_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    payment_id = models.CharField(max_length=1000, null=True, blank=True)
+    date = models.DateTimeField(default=timezone.now)
+    # cartitems=models.ManyToManyField("CartItem", blank=True)
+
 
     class Meta:
-        verbose_name_plural="Order"
-        ordering=['-date']
+        verbose_name_plural = "Orders"
+        ordering = ['-date']
 
     def __str__(self):
         return str(self.order_id)
 
     def order_items(self):
-        return OrderItem.objects.filter(order=self)
+        return self.items.all()
+
+    @property
+    def total_items(self):
+        return self.items.aggregate(total=models.Sum('qty'))['total'] or 0
 
 class OrderItem(models.Model):
-    order=models.ForeignKey(Order, on_delete=models.CASCADE)
-    order_status=models.CharField(max_length=200, choices=ORDER_STATUS, default='Pending')
-    # shipping_servise=models.CharField(max_length=200, choices=SHIPPING_SERVISE, default=None)
-    tracking_id=models.CharField(max_length=200, default=None, blank=True, null=True)
-
-    product=models.ForeignKey(Product, on_delete=models.CASCADE)
-    qty=models.PositiveIntegerField(default=0, null=True, blank=True)
-    size = models.CharField(max_length=100, blank=True, null=True)
-    color = models.CharField(max_length=100, blank=True, null=True)
-    price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    subtotal_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00, blank=True, null=True)
-    shipping = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
-    tax = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    order_status = models.CharField(max_length=200, choices=ORDER_STATUS, default='Pending')
+    tracking_id = models.CharField(max_length=200, blank=True, null=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    qty = models.PositiveIntegerField(default=1)
+    variant = models.CharField(max_length=200, blank=True, null=True)
+    price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    subtotal_price = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     service_fee = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     initial_total = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     saved = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     coupon = models.ManyToManyField(Coupon, blank=True)
-    applied_coupon=models.BooleanField(default=False)
-    item_id=models.UUIDField(default=uuid.uuid4,  unique=True, editable=False)
-    vendor=models.ForeignKey(user_models.User, on_delete=models.CASCADE)
-    date=models.DateTimeField(default=timezone.now)
-
-    def order_id(self):
-        return f'{self.order.order_id}'
+    applied_coupon = models.BooleanField(default=False)
+    item_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    vendor = models.ForeignKey('usauth.User', limit_choices_to={'profile__user_type': 'Vendor'}, on_delete=models.CASCADE, null=True, blank=True)
+    date = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return str(self.item_id)
 
     class Meta:
-        ordering=['-date']
+        ordering = ['-date']
+
 
 
 class Review(models.Model):

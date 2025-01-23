@@ -39,38 +39,31 @@ class ReviewForProductSerializer(ModelSerializer):
         return "Product not available"
 
 
+#ProducDetailSerializer
 
 class ProductDetailSerializer(ModelSerializer):
     new_rating = SerializerMethodField()
     review_count = SerializerMethodField()
-    variant = SerializerMethodField()
+    # variant = SerializerMethodField()
     vendor_name=SerializerMethodField()
     discount_percentage=SerializerMethodField()
     media=SerializerMethodField()
     reviews=SerializerMethodField()
     hitcount=SerializerMethodField()
-    currency=SerializerMethodField()
+    # currency=SerializerMethodField()
     similar_products=SerializerMethodField()
     viewed_products=SerializerMethodField()
+    price_variant=SerializerMethodField()
 
-    price_in_requested_currency = SerializerMethodField()
-    regular_price_in_requested_currency = SerializerMethodField()
-    currency_in_requested=SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             'name', 'image', 'media', 'description', 'additional_info', 'new_rating',
-            'review_count', 'price','regular_price', 'currency', 'discount_percentage', 'variant', 'vendor_name', 'reviews', 'hitcount',
-            'similar_products', 'viewed_products', 'price_in_requested_currency', 'regular_price_in_requested_currency',
-            'currency_in_requested'
+            'review_count', 'price_variant', 'discount_percentage', 'vendor_name', 'reviews', 'hitcount',
+            'similar_products', 'viewed_products',
         ]
 
-
-
-
-    def get_currency(self, obj):
-        return obj.currency.code
 
     def get_regular_price(self, obj):
         if obj.on_sale:
@@ -87,15 +80,6 @@ class ProductDetailSerializer(ModelSerializer):
     def get_review_count(self, obj):
         return obj.reviews.count()
 
-    def get_variant(self, obj):
-        variant_items = VariantItem.objects.filter(variant__product=obj)
-        variant_data = {}
-        for item in variant_items:
-            variant_name = item.variant.name.lower()
-            if variant_name not in variant_data:
-                variant_data[variant_name] = []
-            variant_data[variant_name].append(item.title)
-        return {k: ', '.join(v) for k, v in variant_data.items()}
 
     def get_vendor_name(self, obj):
         vendor = Vendor.objects.filter(user=obj.vendor).first()
@@ -135,8 +119,7 @@ class ProductDetailSerializer(ModelSerializer):
             {
                 'photo': product.image.url if product.image else None,
                 'name': product.name,
-                'price': product.price,
-                'regular_price': product.regular_price
+                'price_variant': self.get_price_variant(product),
             }
             for product in similar_products
         ]
@@ -151,42 +134,20 @@ class ProductDetailSerializer(ModelSerializer):
                 viewed_products_data.append({
                     'photo': product.image.url if product.image else None,
                     'name': product.name,
-                    'price': product.price
+                    'price_variant': self.get_price_variant(product)
                 })
         return viewed_products_data
 
-    def get_price_in_requested_currency(self, obj):
-        # Передача контекста для получения профиля пользователя
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                user_currency = profile.currency
-                conversion_rate = obj.get_currency_conversion_rate(obj.currency, user_currency)
-                return round(obj.price * conversion_rate, 2)
+
+    def get_price_variant(self, obj):
+        user = self.context.get('user')
+        variant = Variant.objects.filter(product=obj).first()
+
+        if variant:
+            return variant.price_variant(user) if user else variant.price_variant_field
+
         return obj.price
 
-    def get_regular_price_in_requested_currency(self, obj):
-        # Передача контекста для получения профиля пользователя
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                user_currency = profile.currency
-                conversion_rate = obj.get_currency_conversion_rate(obj.currency, user_currency)
-                return round(obj.regular_price * conversion_rate, 2)
-        return obj.regular_price
-
-    def get_currency_in_requested(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                return profile.currency.code
-        return obj.currency.code
 
 
 class ProductReviewSerializer(ModelSerializer):
@@ -265,24 +226,30 @@ class QuestionSerializer(ModelSerializer):
         return response
 
 
+
+##Productlist-filter
 class ProductListSerializer(ModelSerializer):
     new_rating = SerializerMethodField()
     discount_percentage = SerializerMethodField()
-    currency = SerializerMethodField()
-    price_in_requested_currency = SerializerMethodField()
-    regular_price_in_requested_currency = SerializerMethodField()
-    currency_in_requested=SerializerMethodField()
+    price_variant=SerializerMethodField()
+    # currency = SerializerMethodField()
+
 
     class Meta:
         model = Product
         fields = [
-            'name', 'image', 'new_rating', 'price', 'regular_price',
-            'discount_percentage', 'currency', 'price_in_requested_currency', 'regular_price_in_requested_currency',
-            'currency_in_requested'
+            'name', 'image', 'new_rating', 'price_variant',
+            'discount_percentage',
         ]
 
-    def get_currency(self, obj):
-        return obj.currency.code
+    def get_price_variant(self, obj):
+        user = self.context.get('user')
+        variant = Variant.objects.filter(product=obj).first()
+
+        if variant:
+            return variant.price_variant(user) if user else variant.price_variant_field
+
+        return obj.price
 
     def get_new_rating(self, obj):
         reviews = obj.reviews.all()
@@ -297,234 +264,13 @@ class ProductListSerializer(ModelSerializer):
             return round(discount)
         return 0
 
-    def get_price_in_requested_currency(self, obj):
-
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                user_currency = profile.currency
-                conversion_rate = obj.get_currency_conversion_rate(obj.currency, user_currency)
-                return round(obj.price * conversion_rate, 2)
-        return obj.price
-
-    def get_regular_price_in_requested_currency(self, obj):
-        # Передача контекста для получения профиля пользователя
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                user_currency = profile.currency
-                conversion_rate = obj.get_currency_conversion_rate(obj.currency, user_currency)
-                return round(obj.regular_price * conversion_rate, 2)
-        return obj.regular_price
-    def get_currency_in_requested(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            user = request.user
-            profile = user.profile if hasattr(user, 'profile') else None
-            if profile and profile.currency:
-                return profile.currency.code
-        return obj.currency.code
-class VariantItemSerializer(ModelSerializer):
-    class Meta:
-        model = VariantItem
-        fields = ['title', 'content']
-
-class VariantSerializer(ModelSerializer):
-    variant_items = SerializerMethodField()
-
-    class Meta:
-        model = Variant
-        fields = ['name', 'variant_items']
-
-    def get_variant_items(self, obj):
-        # Группируем элементы VariantItem по имени варианта
-        grouped_items = VariantItem.objects.filter(variant__name=obj.name)
-        return VariantItemSerializer(grouped_items, many=True).data
 
 
 class CategorySerializer(ModelSerializer):
-    # subcategory=SerializerMethodField()
+
     class Meta:
         model=Category
         fields=['title', 'image', 'parent']
-
-    # def get_subcategory(self, obj):
-    #     subcategories = obj.subcategories.all()
-    #     return [sub.title for sub in subcategories]
-
-
-
-
-class CartProductSerializer(ModelSerializer):
-    product_name = SerializerMethodField()
-    store_name = SerializerMethodField()
-
-    class Meta:
-        model = Cart
-        fields = ['product', 'product_name', 'store_name', 'qty', 'subtotal_price', 'size', 'color', 'date']
-        read_only_fields = ['subtotal_price', 'product', 'size', 'color']
-    def get_product_name(self, obj):
-        return obj.product.name if obj.product else None
-
-    def get_store_name(self, obj):
-        try:
-            store = Vendor.objects.get(user=obj.product.vendor)
-            return store.store_name
-        except Vendor.DoesNotExist:
-            return None
-
-    # def create(self, validated_data):
-    #     product = validated_data.get('product')
-    #     size = validated_data.get('size')
-    #     color = validated_data.get('color')
-    #
-    #
-    #     validated_data['size'] = size
-    #     validated_data['color'] = color
-    #
-    #     validated_data.pop('store_name', None)
-    #
-    #     return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        # Обновляем количество, размер и цвет
-        instance.qty = validated_data.get('qty', instance.qty)
-        # instance.size = validated_data.get('size', instance.size)
-        # instance.color = validated_data.get('color', instance.color)
-        instance.subtotal_price = instance.product.price * instance.qty  # Пересчитываем цену
-
-        instance.save()
-        return instance
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-
-        user = self.context.get('request').user
-        if not user.is_authenticated:
-            cart_data = self.context.get('request').session.get('cart', [])
-            representation = [{
-                'product': item['product'],
-                'qty': item['qty'],
-                'subtotal_price': item['subtotal_price'],
-                'product_name': item['product_name'],
-                'store_name': item['store_name'],
-            } for item in cart_data]
-
-        return representation
-
-    def validate_product(self, value):
-        user = self.context.get('request').user
-
-
-        if user.is_authenticated:
-            if Cart.objects.filter(user=user, product=value).exists():
-                raise ValidationError("Этот товар уже в вашей корзине.")
-        else:
-
-            cart_data = self.context.get('request').session.get('cart', [])
-            if any(item['product'] == value.id for item in cart_data):
-                raise ValidationError("Этот товар уже в вашей корзине.")
-
-        return value
-
-
-# class CartProductSerializer(serializers.ModelSerializer):
-#     product_name = serializers.CharField(source='product.name', read_only=True)
-#     store_name = serializers.CharField(source='product.vendor.store_name', read_only=True)
-#     subtotal_price = serializers.SerializerMethodField()
-#
-#     class Meta:
-#         model = Cart
-#         fields = ['product', 'product_name', 'store_name', 'qty', 'subtotal_price', 'size', 'color']
-#
-#     def get_subtotal_price(self, obj):
-#         return obj.product.price * obj.qty  # Подсчитываем стоимость для товара в корзине
-#
-#     def create(self, validated_data):
-#         # Получаем только количество (qty) из запроса
-#         qty = validated_data.get('qty', 1)
-#         product_slug = self.context['view'].kwargs.get('slug')  # Получаем slug из URL
-#         product = Product.objects.filter(slug=product_slug).first()
-#
-#         if not product:
-#             raise ValidationError("Продукт не найден")
-#
-#         # Обрабатываем поле 'size' и 'color', если они есть
-#         size = validated_data.get('size')
-#         color = validated_data.get('color')
-#
-#         # Создаем запись в корзине
-#         cart_item, created = Cart.objects.get_or_create(
-#             user=self.context['request'].user,
-#             product=product,
-#             defaults={'qty': qty, 'size': size, 'color': color}
-#         )
-#
-#         if not created:  # Если товар уже есть в корзине, обновляем количество
-#             cart_item.qty += qty
-#             cart_item.save()
-#
-#         return cart_item
-
-
-#proba
-
-
-
-class NewReviewSerializer(ModelSerializer):
-    full_name=SerializerMethodField()
-    class Meta:
-        model=Review
-        fields=['id','full_name', 'product','review', 'rating']
-
-    def get_full_name(self, obj):
-        try:
-            profile = Profile.objects.get(user=obj.user)
-            return profile.full_name
-        except Profile.DoesNotExist:
-            return "Unknown User"
-
-
-
-class OrderItemSerializer(ModelSerializer):
-    class Meta:
-        model = OrderItem
-        fields = [
-            'id', 'order', 'product', 'qty', 'size', 'color', 'price', 'subtotal_price',
-            'shipping', 'tax', 'service_fee', 'initial_total', 'saved', 'coupon',
-            'applied_coupon', 'item_id', 'vendor', 'date'
-        ]
-
-class OrderSerializer(ModelSerializer):
-    order_items = OrderItemSerializer(many=True, read_only=True)
-    adress=SerializerMethodField()
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'order_id', 'customer', 'subtotal_price', 'shipping', 'tax', 'service_fee',
-            'total', 'payment_method', 'payment_status', 'order_status', 'initial_total', 'saved',
-            'adress', 'coupons', 'payment_id', 'date', 'order_items'
-        ]
-
-
-    def get_adress(self, obj):
-        if obj.adress:
-            return {
-                'full_name': obj.adress.full_name,
-                'mobile': obj.adress.mobile,
-                'country': obj.adress.country,
-                'state': obj.adress.state,
-                'city': obj.adress.city,
-                'address': obj.adress.address,
-                'zip_code': obj.adress.zip_code
-            }
-        return None  # Если адрес отсутствует
-
-
 
 
 class BrandSerializer(ModelSerializer):
@@ -547,6 +293,128 @@ class ServiseSerializer(ModelSerializer):
     class Meta:
         model=Service
         fields=['title', 'icon', 'subtitle']
+
+
+
+class ColorSerializer(ModelSerializer):
+    class Meta:
+        model=Color
+        fields='__all__'
+
+class SizeSerializer(ModelSerializer):
+    class Meta:
+        model=Size
+        fields='__all__'
+
+
+class StyleSerializer(ModelSerializer):
+    class Meta:
+        model=Style
+        fields='__all__'
+
+
+
+##CART ORDER <<<<<------->>>>>
+
+
+
+
+
+
+
+
+class CartItemSerializer(ModelSerializer):
+    product_name = CharField(source='product.name', read_only=True)
+    product_price = DecimalField(source='product.price', max_digits=15, decimal_places=2, read_only=True)
+    price_variant=SerializerMethodField()
+    # product_vendor = CharField(source='product.vendor.store_name', read_only=True)
+    product_vendor=SerializerMethodField()
+    class Meta:
+        model = CartItem
+        fields = ['id', 'cart', 'product', 'product_vendor', 'variant', 'product_name', 'product_price','price_variant', 'qty', 'created_at', 'total_price',
+                  'updated_at']
+        read_only_fields = ['cart','product_vendor','created_at', 'price_variant', 'updated_at']
+
+    def get_product_vendor(self, obj):
+        if obj.product.vendor and hasattr(obj.product.vendor, 'vendor'):
+            return obj.product.vendor.vendor.store_name
+        return "Нет информации о продавце"
+
+    def get_price_variant(self, obj):
+        user = self.context.get('user')
+        if obj.variant and obj.variant.price_variant() is not None:
+            return obj.variant.price_variant(user) if user else obj.variant.price_variant_field
+        return obj.product.price
+
+    def validate(self, data):
+        user = self.context.get('request').user
+        cart = data.get('cart')
+        product = data.get('product')
+        variant=data.get('variant')
+
+        if variant:
+            if CartItem.objects.filter(cart=cart, product=product, variant=variant).exists():
+                raise ValidationError("Этот товар с выбранным вариантом уже в вашей корзине.")
+        else:
+            if CartItem.objects.filter(cart=cart, product=product, variant__isnull=True).exists():
+                raise ValidationError("Этот товар без варианта уже в вашей корзине.")
+
+        return data
+
+
+
+class CartSerializer(ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    total_items = ReadOnlyField()
+    total_price = ReadOnlyField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'session_id', 'created_at', 'updated_at', 'total_items', 'total_price', 'items']
+
+
+
+class OrderItemSerializer(ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = [
+            'id', 'order', 'product', 'qty', 'variant', 'price', 'subtotal_price',
+            'initial_total', 'saved', 'coupon',
+            'applied_coupon', 'item_id', 'vendor', 'date'
+        ]
+
+
+class OrderSerializer(ModelSerializer):
+    order_items = OrderItemSerializer(many=True, read_only=True)
+    address=SerializerMethodField()
+    # cart=SerializerMethodField()
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_id', 'customer',
+            'total', 'payment_method', 'payment_status', 'order_status',
+            'address', 'coupons', 'payment_id', 'date', 'order_items'
+        ]
+        read_only_fields=['order_id', 'subtotal_price', 'customer',
+            'total',  'payment_status', 'order_status',
+            'address', 'coupons', 'payment_id', 'date', 'order_items']
+
+    def get_address(self, obj):
+        if obj.address:
+            return {
+                'full_name': obj.address.full_name,
+                'mobile': obj.address.mobile,
+                'country': obj.address.country,
+                'state': obj.address.state,
+                'city': obj.address.city,
+                'address': obj.address.address,
+                'zip_code': obj.address.zip_code
+            }
+        return None
+#
+
+
+
 
 
 

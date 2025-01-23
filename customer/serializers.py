@@ -8,7 +8,7 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ['id', 'user', 'full_name', 'mobile', 'country', 'state', 'city', 'address', 'zip_code']
-
+        read_only_fields=['user']
     def get_full_name(self, obj):
         try:
             profile = Profile.objects.get(user=obj.user)
@@ -22,3 +22,15 @@ class AddressSerializer(serializers.ModelSerializer):
             return profile.mobile
         except Profile.DoesNotExist:
             return None
+
+    def update(self, instance, validated_data):
+        """
+        Allow users to update their existing address.
+        """
+        instance.country = validated_data.get('country', instance.country)
+        instance.state = validated_data.get('state', instance.state)
+        instance.city = validated_data.get('city', instance.city)
+        instance.address = validated_data.get('address', instance.address)
+        instance.zip_code = validated_data.get('zip_code', instance.zip_code)
+        instance.save()
+        return instance

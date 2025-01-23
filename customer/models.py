@@ -24,7 +24,7 @@ class Whishlist(models.Model):
             return "Whishlist"
 
 class Address(models.Model):
-    user=models.ForeignKey(User, on_delete=models.CASCADE,  limit_choices_to={'profile__user_type': 'Customer'})
+    user=models.ForeignKey(User, on_delete=models.CASCADE,)
     full_name=models.CharField(max_length=200, null=True, blank=True, default=None)
     mobile=models.CharField(max_length=200, null=True, blank=True, default=None)
     country=models.CharField(max_length=200, null=True, blank=True, default=None)

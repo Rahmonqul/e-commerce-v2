@@ -116,6 +116,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'store.middleware.CustomLocaleMiddleware',
+
 ]
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
